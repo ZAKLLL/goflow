@@ -2,6 +2,8 @@ package v1
 
 import (
 	"fmt"
+
+	"github.com/s8sg/goflow/coderunner"
 	"github.com/s8sg/goflow/core/sdk"
 	"github.com/s8sg/goflow/operation"
 )
@@ -149,6 +151,28 @@ func (currentDag *Dag) Node(vertex string, workload operation.Modifier, options 
 	return &Node{unode: node}
 }
 
+// Node adds a new vertex by id
+func (currentDag *Dag) NodeWithCode(vertex string, workloadCode *coderunner.CodeRunner, options ...Option) *Node {
+	node := currentDag.udag.GetNode(vertex)
+	if node == nil {
+		node = currentDag.udag.AddVertex(vertex, []sdk.Operation{})
+	}
+	newWorkload := createWorkloadWithCode(vertex, workloadCode)
+	node.AddOperation(newWorkload)
+	o := &ExecutionOptions{}
+	for _, opt := range options {
+		o.reset()
+		opt(o)
+		if o.aggregator != nil {
+			node.AddAggregator(o.aggregator)
+		}
+		if o.failureHandler != nil {
+			newWorkload.AddFailureHandler(o.failureHandler)
+		}
+	}
+	return &Node{unode: node}
+}
+
 // Edge adds a directed edge between two vertex as <from>-><to>
 func (currentDag *Dag) Edge(from, to string, opts ...Option) {
 	err := currentDag.udag.AddEdge(from, to)
@@ -245,12 +269,21 @@ func (currentDag *Dag) ConditionalBranch(vertex string, conditions []string, con
 	return
 }
 
-
 // createWorkload Create a function with execution name
 func createWorkload(id string, mod operation.Modifier) *operation.GoFlowOperation {
 	operation := &operation.GoFlowOperation{}
 	operation.Mod = mod
 	operation.Id = id
 	operation.Options = make(map[string][]string)
+	return operation
+}
+
+// createWorkload Create a function with execution name
+func createWorkloadWithCode(id string, codeRunner *coderunner.CodeRunner) *operation.GoFlowOperation {
+	operation := &operation.GoFlowOperation{}
+	operation.Id = id
+	operation.Options = make(map[string][]string)
+	operation.IsCodeExec = true
+	operation.CodeRunner = codeRunner
 	return operation
 }

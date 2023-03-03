@@ -1,23 +1,8 @@
 package main
 
 import (
-	"fmt"
-
-	flow "github.com/s8sg/goflow/flow/v1"
 	goflow "github.com/s8sg/goflow/v1"
 )
-
-// Workload function
-func f1(data []byte, option map[string][]string) ([]byte, error) {
-	return []byte(fmt.Sprintf("you said \"%s\"", string(data))), nil
-}
-
-// Define provide definition of the workflow
-func DefineWorkflow(workflow *flow.Workflow, context *flow.Context) error {
-	dag := workflow.Dag()
-	dag.Node("test", f1)
-	return nil
-}
 
 func main() {
 	fs := &goflow.FlowService{
@@ -26,7 +11,7 @@ func main() {
 		OpenTraceUrl:      "localhost:5775",
 		WorkerConcurrency: 5,
 	}
-	err := fs.Register("myflow", DefineWorkflow)
+	err := fs.Register("myflow", MyWorkFlow)
 	if err != nil {
 		panic(err)
 	}

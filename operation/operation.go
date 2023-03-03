@@ -2,6 +2,10 @@ package operation
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
+
+	"github.com/s8sg/goflow/coderunner"
 )
 
 // FuncErrorHandler the error handler for OnFailure() options
@@ -16,6 +20,10 @@ type GoFlowOperation struct {
 	Options map[string][]string // The option as a input to workload
 
 	FailureHandler FuncErrorHandler // The Failure handler of the operation
+
+	IsCodeExec bool
+
+	CodeRunner *coderunner.CodeRunner
 }
 
 func (operation *GoFlowOperation) addOptions(key string, value string) {
@@ -49,9 +57,18 @@ func executeWorkload(operation *GoFlowOperation, data []byte) ([]byte, error) {
 	var err error
 	var result []byte
 
-	options := operation.GetOptions()
-	result, err = operation.Mod(data, options)
-
+	if !operation.IsCodeExec {
+		options := operation.GetOptions()
+		result, err = operation.Mod(data, options)
+	} else {
+		// 将data 写入 coderunner.InputFileName
+		ioutil.WriteFile(filepath.Join(operation.CodeRunner.WorkSpace, coderunner.InputFileName), data, 0644)
+		err = operation.CodeRunner.Exec()
+		if err != nil {
+			return result, err
+		}
+		result, err = ioutil.ReadFile(filepath.Join(operation.CodeRunner.WorkSpace, coderunner.OutputFileName))
+	}
 	return result, err
 }
 
@@ -99,4 +116,3 @@ func (operation *GoFlowOperation) GetProperties() map[string][]string {
 
 	return result
 }
-
