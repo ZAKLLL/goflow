@@ -4,10 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
-
-	"github.com/traefik/yaegi/interp"
-	"github.com/traefik/yaegi/stdlib"
+	"path/filepath"
 )
 
 // 代码执行输入输出目录
@@ -28,6 +25,23 @@ type CodeRunner struct {
 	WorkSpace  string
 	IsAsync    bool
 	SourceCode string
+}
+
+type CodeExecute interface {
+	ExecCoderRunner(CodeRunner *CodeRunner) error
+}
+
+// 代码执行器
+var CodeExecutorMap = make(map[CodeType]CodeExecute)
+
+// 获取当前codeRunner 数据输入文件位置
+func (code *CodeRunner) GetInputPath() string {
+	return filepath.Join(code.WorkSpace, InputFileName)
+}
+
+// 获取当前codeRunner 数据输出文件位置
+func (code *CodeRunner) GetOutputPath() string {
+	return filepath.Join(code.WorkSpace, OutputFileName)
 }
 
 func (code *CodeRunner) Exec() (err error) {
@@ -71,29 +85,4 @@ func (code *CodeRunner) runPower_Shell() error {
 }
 func (code *CodeRunner) runPython() error {
 	return nil
-}
-func (code *CodeRunner) runGo() (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = errors.New("函数解析异常")
-		}
-	}()
-
-	intp := interp.New(interp.Options{}) // 初始化一个 yaegi 解释器
-	intp.Use(stdlib.Symbols)             // 允许脚本调用（几乎）所有的 Go 官方 package 代码
-	intp.Eval(code.SourceCode)           // src 就是上面的 Go 代码字符串
-	v, _ := intp.Eval("Solution.Run")
-	fu := v.Interface().(func())
-	code.doRun(fu)
-	return err
-}
-
-func (code *CodeRunner) doRun(fu func()) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Println("函数执行异常")
-		}
-	}()
-	fu()
-
 }

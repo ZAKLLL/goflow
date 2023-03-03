@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/s8sg/goflow/coderunner"
 )
@@ -63,16 +62,25 @@ func executeWorkload(operation *GoFlowOperation, data []byte) ([]byte, error) {
 		result, err = operation.Mod(data, options)
 	} else {
 		// 将data 写入 coderunner.InputFileName
-		ioutil.WriteFile(filepath.Join(operation.CodeRunner.WorkSpace, coderunner.InputFileName), data, 0644)
+		err = ioutil.WriteFile(operation.CodeRunner.GetInputPath(), data, 0644)
+		if err != nil {
+			return result, err
+		}
+		outPutPath := operation.CodeRunner.GetOutputPath()
+		//创建输出数据文件
+		_, err = os.Create(outPutPath)
+		if err != nil {
+			return result, err
+		}
+		//执行代码逻辑
 		err = operation.CodeRunner.Exec()
 		if err != nil {
 			return result, err
 		}
-		outPutPath := filepath.Join(operation.CodeRunner.WorkSpace, coderunner.OutputFileName)
-		_, err := os.Stat(outPutPath)
-		if err == nil {
-			result, err = ioutil.ReadFile(outPutPath)
-		}
+
+		//将结果写入到 coderunner.outputFileName
+		result, err = ioutil.ReadFile(outPutPath)
+
 	}
 	return result, err
 }
