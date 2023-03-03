@@ -28,7 +28,7 @@ type CodeRunner struct {
 }
 
 type CodeExecute interface {
-	ExecCoderRunner(CodeRunner *CodeRunner) error
+	ExecCode(CodeRunner *CodeRunner) error
 }
 
 // 代码执行器
@@ -44,37 +44,15 @@ func (code *CodeRunner) GetOutputPath() string {
 	return filepath.Join(code.WorkSpace, OutputFileName)
 }
 
-func (code *CodeRunner) Exec() (err error) {
+func (codeRunner *CodeRunner) Exec() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			jsonBs, _ := json.Marshal(code)
+			jsonBs, _ := json.Marshal(codeRunner)
 			errInfo := fmt.Sprintf("codeRunner exec failed, codeInfo :%s", string(jsonBs))
 			err = errors.New(errInfo)
 		}
 	}()
-	switch code.CodeType {
-	case LINUX_SHELL:
-		{
-			err = code.runLinux_Shell()
-		}
-	case POWER_SHELL:
-		{
-			err = code.runPower_Shell()
-		}
-	case PYTHON:
-		{
-			err = code.runPython()
-		}
-	case GOLANG:
-		{
-			err = code.runGo()
-		}
-	default:
-		{
-			//todo
-		}
-	}
-	return
+	return CodeExecutorMap[codeRunner.CodeType].ExecCode(codeRunner)
 }
 
 func (code *CodeRunner) runLinux_Shell() error {

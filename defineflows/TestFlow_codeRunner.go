@@ -11,13 +11,23 @@ func WorkFlow_codeRunner(workflow *flow.Workflow, context *flow.Context) error {
 
 	src :=
 		`package Solution
-		import "fmt"
-		func Run() {
-			fmt.Println("Hi this codeRunner!")
-		}`
+		import (
+			"fmt"
+			"io/ioutil"
+			"time")
+
+		func Run(intputPath, outputPath string) {
+			data, _ := ioutil.ReadFile(intputPath)
+			fmt.Printf("Hi this codeRunner! input Data :%s \n", string(data))
+			tStr := time.Now().String()
+			ioutil.WriteFile(outputPath, []byte("Hello this is CodeRunner ! "+tStr), 0644)
+		}
+		
+		
+		`
 
 	codeRunner := &coderunner.CodeRunner{
-		WorkSpace:  "C:\\Users\\张家魁\\Desktop\\codeRunner",
+		WorkSpace:  "C:\\Users\\Zakl\\Desktop\\codeRunner",
 		CodeType:   coderunner.GOLANG,
 		IsAsync:    true,
 		SourceCode: src,

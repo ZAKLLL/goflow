@@ -1,4 +1,4 @@
-// package coderunner
+package coderunner
 
 // import (
 // 	"fmt"
