@@ -41,19 +41,19 @@ func (code *CodeRunner) Exec() (err error) {
 	switch code.CodeType {
 	case LINUX_SHELL:
 		{
-			code.runLinux_Shell()
+			err = code.runLinux_Shell()
 		}
 	case POWER_SHELL:
 		{
-			code.runPower_Shell()
+			err = code.runPower_Shell()
 		}
 	case PYTHON:
 		{
-			code.runPython()
+			err = code.runPython()
 		}
 	case GOLANG:
 		{
-			code.runGo()
+			err = code.runGo()
 		}
 	default:
 		{

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/s8sg/goflow/defineflows"
 	goflow "github.com/s8sg/goflow/v1"
 )
 
@@ -11,21 +12,9 @@ func main() {
 		OpenTraceUrl:      "localhost:5775",
 		WorkerConcurrency: 5,
 	}
-	err := fs.Register("myflow", MyWorkFlow)
-	if err != nil {
-		panic(err)
-	}
-	err = fs.Start()
+	defineflows.DoRegister(fs)
+	err := fs.Start()
 	if err != nil {
 		panic(err)
 	}
 }
-
-// func main() {
-// 	fs := &goflow.FlowService{
-// 		RedisURL: "localhost:6379",
-// 	}
-// 	fs.Execute("myflow", &goflow.Request{
-// 		Body: []byte("hallo"),
-// 	})
-// }

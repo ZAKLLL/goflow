@@ -3,6 +3,7 @@ package operation
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/s8sg/goflow/coderunner"
@@ -67,7 +68,11 @@ func executeWorkload(operation *GoFlowOperation, data []byte) ([]byte, error) {
 		if err != nil {
 			return result, err
 		}
-		result, err = ioutil.ReadFile(filepath.Join(operation.CodeRunner.WorkSpace, coderunner.OutputFileName))
+		outPutPath := filepath.Join(operation.CodeRunner.WorkSpace, coderunner.OutputFileName)
+		_, err := os.Stat(outPutPath)
+		if err == nil {
+			result, err = ioutil.ReadFile(outPutPath)
+		}
 	}
 	return result, err
 }
@@ -76,7 +81,7 @@ func (operation *GoFlowOperation) Execute(data []byte, _ map[string]interface{})
 	var result []byte
 	var err error
 
-	if operation.Mod != nil {
+	if operation.Mod != nil || (operation.IsCodeExec && operation.CodeRunner != nil) {
 		result, err = executeWorkload(operation, data)
 		if err != nil {
 			err = fmt.Errorf("function(%s), error: function execution failed, %v",
