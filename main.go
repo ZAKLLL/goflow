@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	defineflow "github.com/s8sg/goflow/defineflows"
+	defineflow "github.com/s8sg/goflow/flowregistry"
 	goflow "github.com/s8sg/goflow/v1"
 )
 
@@ -27,7 +27,7 @@ func main() {
 		OpenTraceUrl:      trace,
 		WorkerConcurrency: 5,
 	}
-	defineflow.DoRegister(fs)
+	defineflow.RegisterDefineFlows(fs)
 	err := fs.Start()
 	if err != nil {
 		panic(err)

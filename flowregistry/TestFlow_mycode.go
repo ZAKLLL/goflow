@@ -1,4 +1,4 @@
-package defineflows
+package flowregistry
 
 import (
 	"github.com/s8sg/goflow/coderunner"

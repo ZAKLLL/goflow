@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/s8sg/goflow/flowregistry"
+	"github.com/s8sg/goflow/runtimeRegistry"
+	goflow "github.com/s8sg/goflow/v1"
 	"log"
 	"net/http"
 	"time"
@@ -41,8 +44,11 @@ type FlowRuntime struct {
 	eventHandler sdk.EventHandler
 
 	taskQueues map[string]rmq.Queue
-	srv        *http.Server
-	rdb        *redis.Client
+
+	//用作运行时动态注册任务的Queue
+
+	srv *http.Server
+	rdb *redis.Client
 }
 
 type Worker struct {
@@ -312,7 +318,6 @@ func (fRuntime *FlowRuntime) StartQueueWorker(errorChan chan error) error {
 			index++
 		}
 	}
-
 	fRuntime.Logger.Log("[goflow] queue worker started successfully")
 
 	err = <-errorChan
@@ -534,6 +539,31 @@ func (fRuntime *FlowRuntime) saveFlowDetails(flows map[string]string) error {
 		rdb.Set(key, definition, time.Second*RDBKeyTimeOut)
 	}
 	return nil
+}
+
+func (fRuntime *FlowRuntime) StartRuntimeRegister(fs *goflow.FlowService) error {
+	for {
+		keys := fRuntime.rdb.Keys(runtimeRegistry.RuntimeRegistryFlowInitial + "*")
+		flowNames, err := keys.Result()
+		if err != nil {
+			return err
+		}
+		for _, name := range flowNames {
+			//当前flowName不存在
+			if _, ok := fs.Flows[name]; !ok {
+				flowJson, err := fRuntime.rdb.Get(name).Result()
+				if err != nil {
+					return err
+				}
+				err = flowregistry.DoRegisterAtRuntime(fs, flowJson, false)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		//执行一次
+		time.Sleep(time.Second * 1)
+	}
 }
 
 func marshalWorker(worker *Worker) string {

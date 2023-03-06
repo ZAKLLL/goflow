@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/s8sg/goflow/defineflows"
+	"github.com/s8sg/goflow/flowregistry"
 	goflow "github.com/s8sg/goflow/v1"
 )
 
@@ -12,7 +12,7 @@ func main() {
 		OpenTraceUrl:      "localhost:5775",
 		WorkerConcurrency: 5,
 	}
-	err := defineflows.DoRegister(fs)
+	err := flowregistry.RegisterDefineFlows(fs)
 	if err != nil {
 		panic(err)
 	}

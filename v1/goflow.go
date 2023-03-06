@@ -22,7 +22,7 @@ type FlowService struct {
 	DataStore               sdk.DataStore
 	Logger                  sdk.Logger
 	EnableMonitoring        bool
-	DebugEnabled			bool
+	DebugEnabled            bool
 
 	runtime *runtime.FlowRuntime
 }
@@ -171,6 +171,7 @@ func (fs *FlowService) Register(flowName string, handler runtime.FlowDefinitionH
 		return fmt.Errorf("flow-name must be unique for each flow")
 	}
 
+	fs.Logger.Log(fmt.Sprintf("registry flow :[%s] successfully \n", flowName))
 	fs.Flows[flowName] = handler
 
 	return nil
@@ -195,7 +196,7 @@ func (fs *FlowService) Start() error {
 		RequestAuthEnabled:      fs.RequestAuthEnabled,
 		EnableMonitoring:        fs.EnableMonitoring,
 		RetryQueueCount:         fs.RetryCount,
-		DebugEnabled: 			 fs.DebugEnabled,
+		DebugEnabled:            fs.DebugEnabled,
 	}
 	errorChan := make(chan error)
 	defer close(errorChan)
@@ -205,6 +206,7 @@ func (fs *FlowService) Start() error {
 	go fs.runtimeWorker(errorChan)
 	go fs.queueWorker(errorChan)
 	go fs.server(errorChan)
+	go fs.runtimeRegister(errorChan)
 	err := <-errorChan
 	return err
 }
@@ -224,7 +226,7 @@ func (fs *FlowService) StartServer() error {
 		RequestAuthEnabled:      fs.RequestAuthEnabled,
 		EnableMonitoring:        fs.EnableMonitoring,
 		RetryQueueCount:         fs.RetryCount,
-		DebugEnabled: 			 fs.DebugEnabled,
+		DebugEnabled:            fs.DebugEnabled,
 	}
 	errorChan := make(chan error)
 	defer close(errorChan)
@@ -250,7 +252,7 @@ func (fs *FlowService) StartWorker() error {
 		RequestAuthEnabled:      fs.RequestAuthEnabled,
 		EnableMonitoring:        fs.EnableMonitoring,
 		RetryQueueCount:         fs.RetryCount,
-		DebugEnabled: 			 fs.DebugEnabled,
+		DebugEnabled:            fs.DebugEnabled,
 	}
 	errorChan := make(chan error)
 	defer close(errorChan)
@@ -308,4 +310,9 @@ func (fs *FlowService) queueWorker(errorChan chan error) {
 func (fs *FlowService) server(errorChan chan error) {
 	err := fs.runtime.StartServer()
 	errorChan <- fmt.Errorf("server has stopped, error: %v", err)
+}
+
+func (fs *FlowService) runtimeRegister(errorChan chan error) {
+	err := fs.runtime.StartRuntimeRegister(fs)
+	errorChan <- fmt.Errorf("runtimeRegister has stopped, error: %v", err)
 }

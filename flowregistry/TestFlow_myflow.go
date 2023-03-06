@@ -1,4 +1,4 @@
-package defineflows
+package flowregistry
 
 import (
 	"fmt"
