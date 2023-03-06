@@ -7,10 +7,6 @@ import (
 	"path/filepath"
 )
 
-// 代码执行输入输出目录
-const InputFileName = "__goFlowInput"
-const OutputFileName = "__goFlowOutput"
-
 type CodeType int
 
 const (

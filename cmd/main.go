@@ -12,8 +12,11 @@ func main() {
 		OpenTraceUrl:      "localhost:5775",
 		WorkerConcurrency: 5,
 	}
-	defineflows.DoRegister(fs)
-	err := fs.Start()
+	err := defineflows.DoRegister(fs)
+	if err != nil {
+		panic(err)
+	}
+	err = fs.Start()
 	if err != nil {
 		panic(err)
 	}

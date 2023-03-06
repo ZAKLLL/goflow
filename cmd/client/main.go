@@ -6,7 +6,10 @@ func main() {
 	fs := &goflow.FlowService{
 		RedisURL: "localhost:6379",
 	}
-	fs.Execute("myflow", &goflow.Request{
+	err := fs.Execute("myCode", &goflow.Request{
 		Body: []byte("hallo"),
 	})
+	if err != nil {
+		panic(err)
+	}
 }

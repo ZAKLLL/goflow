@@ -1,0 +1,26 @@
+{
+  "FlowName": "testFlow",
+  "Description": "描述信息",
+  "Dag": {
+    "Nodes": [
+      {
+        "NodeName": "",
+        "NodeCodeTag": ""
+      }
+    ],
+    "Edges": [
+      {
+        "From": "node1",
+        "To": "node2"
+      }
+    ]
+  },
+  "SourceCode": [
+    {
+      "CodeTag": "",
+      "CodeSrc": "",
+      "CodeType": 1,
+      "WorkSpace": ""
+    }
+  ]
+}

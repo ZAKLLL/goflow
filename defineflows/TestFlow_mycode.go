@@ -22,12 +22,10 @@ func WorkFlow_codeRunner(workflow *flow.Workflow, context *flow.Context) error {
 			tStr := time.Now().String()
 			ioutil.WriteFile(outputPath, []byte("Hello this is CodeRunner ! "+tStr), 0644)
 		}
-		
-		
 		`
 
 	codeRunner := &coderunner.CodeRunner{
-		WorkSpace:  "C:\\Users\\Zakl\\Desktop\\codeRunner",
+		WorkSpace:  "C:\\Users\\张家魁\\Desktop\\codeRunner",
 		CodeType:   coderunner.GOLANG,
 		IsAsync:    true,
 		SourceCode: src,

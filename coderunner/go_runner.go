@@ -8,6 +8,10 @@ import (
 	"github.com/traefik/yaegi/stdlib"
 )
 
+// 代码执行输入输出目录
+const InputFileName = "__goFlowInput"
+const OutputFileName = "__goFlowOutput"
+
 type Go_runner struct{}
 
 func (go_runner *Go_runner) ExecCode(code *CodeRunner) (err error) {
