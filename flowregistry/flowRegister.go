@@ -2,12 +2,12 @@ package flowregistry
 
 import (
 	"fmt"
-	"github.com/s8sg/goflow/runtimeRegistry"
+	log2 "github.com/s8sg/goflow/log"
+	"github.com/s8sg/goflow/runtime"
 	goflow "github.com/s8sg/goflow/v1"
 	"gopkg.in/redis.v5"
 	"log"
-
-	"github.com/s8sg/goflow/runtime"
+	"time"
 )
 
 // 预定义的flow,通过init()函数调用registerNewFlow 进行注册
@@ -23,9 +23,18 @@ func registerNewFlow(flowName string, flowDefine runtime.FlowDefinitionHandler) 
 	registryFlowMap[flowName] = flowDefine
 }
 
-func RegisterDefineFlows(fs *goflow.FlowService) error {
+func RegisterFlows(fs *goflow.FlowService) error {
+	err := registerRuntimeFlows(fs)
+	if err != nil {
+		return err
+	}
+	go StartRuntimeRegister(fs)
+	return nil
+}
+
+func registerRuntimeFlows(fs *goflow.FlowService) error {
 	for k, v := range registryFlowMap {
-		err := fs.Register(k, v)
+		err := fs.Register(k, v, false)
 		if err != nil {
 			return err
 		}
@@ -33,18 +42,58 @@ func RegisterDefineFlows(fs *goflow.FlowService) error {
 	return nil
 }
 
-// todo test
-func RegisterAtRuntime(fs *goflow.FlowService, flowJson string) error {
-	return DoRegisterAtRuntime(fs, flowJson, true)
+func StartRuntimeRegister(fs *goflow.FlowService) {
+	if redisClient == nil {
+		redisClient = redis.NewClient(&redis.Options{
+			Addr: fs.RedisURL,
+			DB:   0,
+		})
+		_, err := redisClient.Ping().Result()
+		if err != nil {
+			panic("redis connection error :" + err.Error())
+		}
+	}
+	for {
+		//4s执行一次
+		time.Sleep(time.Second * 4)
+
+		keys := redisClient.Keys(runtimeRegistryFlowInitial + "*")
+		runtimeregistryflowKeys, err := keys.Result()
+		if err != nil {
+			continue
+		}
+		for _, key := range runtimeregistryflowKeys {
+			flowName := key[len(runtimeRegistryFlowInitial)+1:]
+			if _, ok := fs.Flows[flowName]; !ok {
+				flowJson, err := redisClient.Get(key).Result()
+				if err != nil {
+					continue
+				}
+				err = doRegisterAtRuntime(fs, flowJson, false)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+	}
 }
 
-func DoRegisterAtRuntime(fs *goflow.FlowService, flowJson string, deliver bool) error {
-	flowName, dag, err := runtimeRegistry.ConstructDag(flowJson)
+// todo test
+func RegisterAtRuntime(fs *goflow.FlowService, flowJson string) error {
+	return doRegisterAtRuntime(fs, flowJson, true)
+}
+
+func doRegisterAtRuntime(fs *goflow.FlowService, flowJson string, deliver bool) error {
+	flowName, dag, err := ConstructDag(flowJson)
 	if err != nil {
 		return err
 	}
+	if fs.Logger == nil {
+		fs.Logger = &log2.StdErrLogger{}
+	}
 	fs.Logger.Log(fmt.Sprintf("runtime registing, flowInfo :%s \n", flowJson))
-	err = fs.Register(flowName, dag)
+	//相当于在本地预注册一次
+	err = fs.Register(flowName, dag, !deliver)
 	if err != nil {
 		return err
 	}
@@ -60,28 +109,18 @@ func DoRegisterAtRuntime(fs *goflow.FlowService, flowJson string, deliver bool) 
 }
 
 func distributeDagToOtherService(fs *goflow.FlowService, flowName, json string) error {
-	if redisClient != nil {
+	if redisClient == nil {
 		redisClient = redis.NewClient(&redis.Options{
 			Addr: fs.RedisURL,
 			DB:   0,
 		})
 	}
-	set := redisClient.Set(runtimeRegistry.GenFlowRedisKey(flowName), json, runtimeRegistry.ExpireLastTime)
+	set := redisClient.Set(GenFlowRedisKey(flowName), json, ExpireLastTime)
 	_, err := set.Result()
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func Consume(Fs *goflow.FlowService, flowJson string) {
-
-	err := DoRegisterAtRuntime(Fs, flowJson, false)
-	if err != nil {
-		Fs.Logger.Log("[goflow RuntimeRegister] failed to register new Flow, error " + err.Error())
-		return
-	}
-
 }
 
 //// 运行时提交dag代码

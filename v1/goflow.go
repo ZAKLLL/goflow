@@ -4,6 +4,7 @@ import (
 	"fmt"
 	runtimePkg "github.com/s8sg/goflow/core/runtime"
 	"github.com/s8sg/goflow/core/sdk"
+	log2 "github.com/s8sg/goflow/log"
 	"github.com/s8sg/goflow/runtime"
 	"time"
 )
@@ -155,7 +156,7 @@ func (fs *FlowService) Stop(flowName string, requestId string) error {
 	return nil
 }
 
-func (fs *FlowService) Register(flowName string, handler runtime.FlowDefinitionHandler) error {
+func (fs *FlowService) Register(flowName string, handler runtime.FlowDefinitionHandler, runtimeRegistry bool) error {
 	if flowName == "" {
 		return fmt.Errorf("flow-name must not be empty")
 	}
@@ -171,9 +172,17 @@ func (fs *FlowService) Register(flowName string, handler runtime.FlowDefinitionH
 		return fmt.Errorf("flow-name must be unique for each flow")
 	}
 
+	if fs.Logger == nil {
+		fs.Logger = &log2.StdErrLogger{}
+	}
 	fs.Logger.Log(fmt.Sprintf("registry flow :[%s] successfully \n", flowName))
 	fs.Flows[flowName] = handler
-
+	if runtimeRegistry {
+		err := fs.runtime.AddNewFlowQueueAndDetail(flowName, handler)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -206,7 +215,6 @@ func (fs *FlowService) Start() error {
 	go fs.runtimeWorker(errorChan)
 	go fs.queueWorker(errorChan)
 	go fs.server(errorChan)
-	go fs.runtimeRegister(errorChan)
 	err := <-errorChan
 	return err
 }
@@ -310,9 +318,4 @@ func (fs *FlowService) queueWorker(errorChan chan error) {
 func (fs *FlowService) server(errorChan chan error) {
 	err := fs.runtime.StartServer()
 	errorChan <- fmt.Errorf("server has stopped, error: %v", err)
-}
-
-func (fs *FlowService) runtimeRegister(errorChan chan error) {
-	err := fs.runtime.StartRuntimeRegister(fs)
-	errorChan <- fmt.Errorf("runtimeRegister has stopped, error: %v", err)
 }

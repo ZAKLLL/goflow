@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/s8sg/goflow/flowregistry"
-	"github.com/s8sg/goflow/runtimeRegistry"
-	goflow "github.com/s8sg/goflow/v1"
 	"log"
 	"net/http"
 	"time"
@@ -45,10 +42,11 @@ type FlowRuntime struct {
 
 	taskQueues map[string]rmq.Queue
 
-	//用作运行时动态注册任务的Queue
-
-	srv *http.Server
-	rdb *redis.Client
+	srv           *http.Server
+	rdb           *redis.Client
+	rmqConnection rmq.Connection
+	worker        *Worker
+	flowDetails   map[string]string
 }
 
 type Worker struct {
@@ -245,7 +243,7 @@ func (fRuntime *FlowRuntime) StartServer() error {
 		Handler:        router(fRuntime),
 		MaxHeaderBytes: 1 << 20, // Max header of 1MB
 	}
-
+	fmt.Printf("goflow server running in :%d \n", fRuntime.ServerPort)
 	return fRuntime.srv.ListenAndServe()
 }
 
@@ -263,77 +261,86 @@ func (fRuntime *FlowRuntime) StartQueueWorker(errorChan chan error) error {
 	if err != nil {
 		return fmt.Errorf("failed to initiate connection, error %v", err)
 	}
-
+	fRuntime.rmqConnection = connection
 	fRuntime.taskQueues = make(map[string]rmq.Queue)
 	for flowName := range fRuntime.Flows {
-		taskQueue, err := connection.OpenQueue(fRuntime.internalRequestQueueId(flowName))
+		err := fRuntime.startFlowQueue(flowName)
 		if err != nil {
-			return fmt.Errorf("failed to open queue, error %v", err)
-		}
-
-		var pushQueues = make([]rmq.Queue, fRuntime.RetryQueueCount)
-		var previousQueue = taskQueue
-
-		index := 0
-		for index < fRuntime.RetryQueueCount {
-			pushQueues[index], err = connection.OpenQueue(fRuntime.internalRequestQueueId(flowName) + "push-" + fmt.Sprint())
-			if err != nil {
-				return fmt.Errorf("failed to open push queue, error %v", err)
-			}
-			previousQueue.SetPushQueue(pushQueues[index])
-			previousQueue = pushQueues[index]
-			index++
-		}
-
-		err = taskQueue.StartConsuming(10, time.Second)
-		if err != nil {
-			return fmt.Errorf("failed to start consumer taskQueue, error %v", err)
-		}
-		fRuntime.taskQueues[flowName] = taskQueue
-
-		index = 0
-		for index < fRuntime.RetryQueueCount {
-			err = pushQueues[index].StartConsuming(10, time.Second)
-			if err != nil {
-				return fmt.Errorf("failed to start consumer pushQ1, error %v", err)
-			}
-			index++
-		}
-
-		index = 0
-		for index < fRuntime.Concurrency {
-			_, err := taskQueue.AddConsumer(fmt.Sprintf("request-consumer-%d", index), fRuntime)
-			if err != nil {
-				return fmt.Errorf("failed to add consumer, error %v", err)
-			}
-			index++
-		}
-
-		index = 0
-		for index < fRuntime.RetryQueueCount {
-			_, err = pushQueues[index].AddConsumer(fmt.Sprintf("request-consumer-%d", index), fRuntime)
-			if err != nil {
-				return fmt.Errorf("failed to add consumer, error %v", err)
-			}
-			index++
+			return err
 		}
 	}
 	fRuntime.Logger.Log("[goflow] queue worker started successfully")
-
 	err = <-errorChan
 	<-connection.StopAllConsuming()
 	return err
+}
+
+func (fRuntime *FlowRuntime) startFlowQueue(flowName string) error {
+	taskQueue, err := fRuntime.rmqConnection.OpenQueue(fRuntime.internalRequestQueueId(flowName))
+	if err != nil {
+		return fmt.Errorf("failed to open queue, error %v", err)
+	}
+
+	var pushQueues = make([]rmq.Queue, fRuntime.RetryQueueCount)
+	var previousQueue = taskQueue
+
+	index := 0
+	for index < fRuntime.RetryQueueCount {
+		pushQueues[index], err = fRuntime.rmqConnection.OpenQueue(fRuntime.internalRequestQueueId(flowName) + "push-" + fmt.Sprint())
+		if err != nil {
+			return fmt.Errorf("failed to open push queue, error %v", err)
+		}
+		previousQueue.SetPushQueue(pushQueues[index])
+		previousQueue = pushQueues[index]
+		index++
+	}
+
+	err = taskQueue.StartConsuming(10, time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to start consumer taskQueue, error %v", err)
+	}
+	fRuntime.taskQueues[flowName] = taskQueue
+
+	index = 0
+	for index < fRuntime.RetryQueueCount {
+		err = pushQueues[index].StartConsuming(10, time.Second)
+		if err != nil {
+			return fmt.Errorf("failed to start consumer pushQ1, error %v", err)
+		}
+		index++
+	}
+
+	index = 0
+	for index < fRuntime.Concurrency {
+		_, err := taskQueue.AddConsumer(fmt.Sprintf("request-consumer-%d", index), fRuntime)
+		if err != nil {
+			return fmt.Errorf("failed to add consumer, error %v", err)
+		}
+		index++
+	}
+
+	index = 0
+	for index < fRuntime.RetryQueueCount {
+		_, err = pushQueues[index].AddConsumer(fmt.Sprintf("request-consumer-%d", index), fRuntime)
+		if err != nil {
+			return fmt.Errorf("failed to add consumer, error %v", err)
+		}
+		index++
+	}
+	return nil
 }
 
 // StartRuntime starts the runtime
 func (fRuntime *FlowRuntime) StartRuntime() error {
 	worker := &Worker{
 		ID:          getNewId(),
-		Flows:       make([]string, 0, len(fRuntime.Flows)),
+		Flows:       make([]string, 0),
 		Concurrency: fRuntime.Concurrency,
 	}
 	// Get the flow details for each flow
 	flowDetails := make(map[string]string)
+	fRuntime.worker = worker
+	fRuntime.flowDetails = flowDetails
 	for flowID, defHandler := range fRuntime.Flows {
 		worker.Flows = append(worker.Flows, flowID)
 		dag, err := getFlowDefinition(defHandler)
@@ -541,31 +548,6 @@ func (fRuntime *FlowRuntime) saveFlowDetails(flows map[string]string) error {
 	return nil
 }
 
-func (fRuntime *FlowRuntime) StartRuntimeRegister(fs *goflow.FlowService) error {
-	for {
-		keys := fRuntime.rdb.Keys(runtimeRegistry.RuntimeRegistryFlowInitial + "*")
-		flowNames, err := keys.Result()
-		if err != nil {
-			return err
-		}
-		for _, name := range flowNames {
-			//当前flowName不存在
-			if _, ok := fs.Flows[name]; !ok {
-				flowJson, err := fRuntime.rdb.Get(name).Result()
-				if err != nil {
-					return err
-				}
-				err = flowregistry.DoRegisterAtRuntime(fs, flowJson, false)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		//执行一次
-		time.Sleep(time.Second * 1)
-	}
-}
-
 func marshalWorker(worker *Worker) string {
 	jsonDef, _ := json.Marshal(worker)
 	return string(jsonDef)
@@ -598,4 +580,19 @@ func getFlowDefinition(handler FlowDefinitionHandler) (string, error) {
 func getNewId() string {
 	guid := xid.New()
 	return guid.String()
+}
+
+// 运行时添加flow之后需要创建queue,及flow信息
+func (fRuntime *FlowRuntime) AddNewFlowQueueAndDetail(flowId string, defHandler FlowDefinitionHandler) error {
+	fRuntime.worker.Flows = append(fRuntime.worker.Flows, flowId)
+	dag, err := getFlowDefinition(defHandler)
+	if err != nil {
+		return fmt.Errorf("failed to AddNewFlowQueueAndDetail in runtime,dag export error %s", err.Error())
+	}
+	fRuntime.flowDetails[flowId] = dag
+	err = fRuntime.startFlowQueue(flowId)
+	if err != nil {
+		return err
+	}
+	return nil
 }

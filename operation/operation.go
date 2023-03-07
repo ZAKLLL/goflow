@@ -61,6 +61,10 @@ func executeWorkload(operation *GoFlowOperation, data []byte) ([]byte, error) {
 		options := operation.GetOptions()
 		result, err = operation.Mod(data, options)
 	} else {
+		if f, _ := hasDir(operation.CodeRunner.WorkSpace); !f {
+			_ = os.Mkdir(operation.CodeRunner.WorkSpace, os.ModeDir)
+		}
+
 		// 将data 写入 coderunner.InputFileName
 		err = ioutil.WriteFile(operation.CodeRunner.GetInputPath(), data, 0644)
 		if err != nil {
@@ -128,4 +132,14 @@ func (operation *GoFlowOperation) GetProperties() map[string][]string {
 	result["hasFailureHandler"] = []string{hasFailureHandler}
 
 	return result
+}
+func hasDir(path string) (bool, error) {
+	_, _err := os.Stat(path)
+	if _err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(_err) {
+		return false, nil
+	}
+	return false, _err
 }

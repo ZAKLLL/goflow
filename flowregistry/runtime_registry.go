@@ -1,4 +1,4 @@
-package runtimeRegistry
+package flowregistry
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const RuntimeRegistryFlowInitial = "goflow-runtime-registry-flow"
+const runtimeRegistryFlowInitial = "goflow-runtime-registry-flow"
 const ExpireLastTime = 60 * time.Minute
 
 type RuntimeRegistryDag struct {
@@ -51,7 +51,7 @@ func (rDag *RuntimeRegistryDag) getCodeRunners() ([]string, []*coderunner.CodeRu
 			}
 		}
 	}
-	return nodeNames, nil
+	return nodeNames, codeRunners
 }
 
 func ConstructDag(dagJson string) (string, runtime.FlowDefinitionHandler, error) {
@@ -77,5 +77,5 @@ func ConstructDag(dagJson string) (string, runtime.FlowDefinitionHandler, error)
 }
 
 func GenFlowRedisKey(flowName string) string {
-	return fmt.Sprintf("%s:%s", RuntimeRegistryFlowInitial, flowName)
+	return fmt.Sprintf("%s:%s", runtimeRegistryFlowInitial, flowName)
 }

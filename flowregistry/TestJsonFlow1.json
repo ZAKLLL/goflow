@@ -1,0 +1,36 @@
+{
+  "FlowName": "testFlow",
+  "Description": "描述信息",
+  "Dag": {
+    "Nodes": [
+      {
+        "NodeName": "node1",
+        "NodeCodeTag": "node1Code"
+      },
+      {
+        "NodeName": "node2",
+        "NodeCodeTag": "node2Code"
+      }
+    ],
+    "Edges": [
+      {
+        "From": "node1",
+        "To": "node2"
+      }
+    ]
+  },
+  "SourceCode": [
+    {
+      "CodeTag": "node1Code",
+      "CodeSrc": "package Solution\n\t\timport (\n\t\t\t\"fmt\"\n\t\t\t\"io/ioutil\"\n\t\t\t\"time\")\n\n\t\tfunc Run(intputPath, outputPath string) {\n\t\t\tdata, _ := ioutil.ReadFile(intputPath)\n\t\t\tfmt.Printf(\"Hi this codeRunner! input Data :%s \\n\", string(data))\n\t\t\ttStr := time.Now().String()\n\t\t\tioutil.WriteFile(outputPath, []byte(\"Hello this is CodeRunner ! \"+tStr), 0644)\n\t\t}",
+      "CodeType": 3,
+      "WorkSpace": "C:\\Users\\张家魁\\Desktop\\codeRunner22"
+    },
+    {
+      "CodeTag": "node2Code",
+      "CodeSrc": "package Solution\n\t\timport (\n\t\t\t\"fmt\"\n\t\t\t\"io/ioutil\"\n\t\t\t\"time\")\n\n\t\tfunc Run(intputPath, outputPath string) {\n\t\t\tdata, _ := ioutil.ReadFile(intputPath)\n\t\t\tfmt.Printf(\"Hi this codeRunner! input Data :%s \\n\", string(data))\n\t\t\ttStr := time.Now().String()\n\t\t\tioutil.WriteFile(outputPath, []byte(\"Hello this is CodeRunner ! \"+tStr), 0644)\n\t\t}",
+      "CodeType": 3,
+      "WorkSpace": "C:\\Users\\张家魁\\Desktop\\codeRunner33"
+    }
+  ]
+}
